@@ -1,122 +1,167 @@
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.types import Message
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import Message, CallbackQuery
 from aiogram.enums import ParseMode
-from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.markdown import hbold
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.filters.command import CommandStart
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from aiogram.client.default import DefaultBotProperties
+from aiogram import F
+from aiogram.filters import CommandStart
 import asyncio
-import os
 import json
-from keyboards import main_menu_kb, checklist_inline_kb, goals_inline_kb
+import os
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from keyboards import main_menu_kb, build_task_inline_kb, build_goal_inline_kb
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher(storage=MemoryStorage())
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 scheduler = AsyncIOScheduler()
 
-waiting_for_task = set()
-waiting_for_goal = set()
+DATA_PATH = "data"
+CHECKLIST_FILE = os.path.join(DATA_PATH, "checklist.json")
+GOALS_FILE = os.path.join(DATA_PATH, "goals.json")
 
-# JSON helpers
-def load_json(path, default=[]):
+
+def load_json(path, default=None):
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return default
+        return default if default is not None else []
+
 
 def save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# Прогресс бар
-def progress_bar(completed, total):
-    if total == 0:
-        return "▫️" * 20 + " 0/0"
-    percent = int((completed / total) * 20)
-    return "🟩" * percent + "▫️" * (20 - percent) + f" {completed}/{total}"
 
-# Старт
+def progress_bar(completed, total):
+    percent = int((completed / total) * 10) if total else 0
+    return "▮" * percent + "▯" * (10 - percent) + f" {completed}/{total}"
+
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     await message.answer("Привет, Ден! Я твой помощник по распорядку дня!", reply_markup=main_menu_kb)
 
-# Расписание
-@dp.message(F.text.lower() == "📅 расписание")
+
+@dp.message(F.text == "📅 Расписание")
 async def show_schedule(message: Message):
-    schedule = load_json("data/schedule.json")
-    if not schedule:
-        await message.answer("Расписание пока не добавлено.")
-    else:
-        await message.answer("\n".join(schedule))
+    await message.answer("Расписание пока не добавлено.")
 
-# Чеклист
-@dp.message(F.text.lower() == "✅ чеклист")
-async def show_checklist(message: Message):
-    tasks = load_json("data/checklist.json")
-    if not tasks:
-        await message.answer("Задачи пока не добавлены.", reply_markup=checklist_inline_kb)
-    else:
-        text = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tasks)])
-        await message.answer(f"Текущий чеклист:\n{text}", reply_markup=checklist_inline_kb)
 
-# Цели
-@dp.message(F.text.lower() == "🎯 цели")
+@dp.message(F.text == "🎯 Цели")
 async def show_goals(message: Message):
-    goals = load_json("data/goals.json")
+    goals = load_json(GOALS_FILE)
     if not goals:
-        await message.answer("Цели пока не добавлены.", reply_markup=goals_inline_kb)
+        await message.answer("Цели пока не добавлены.")
     else:
-        text = "\n".join([f"{i+1}. {g}" for i, g in enumerate(goals)])
-        await message.answer(f"Текущие цели:\n{text}", reply_markup=goals_inline_kb)
+        for idx, goal in enumerate(goals):
+            text = f"🎯 {goal['text']} {'✅' if goal.get('done') else '❌'}"
+            await message.answer(text, reply_markup=build_goal_inline_kb(idx))
+        await message.answer("🎯 Добавить цель:", reply_markup=build_goal_inline_kb("add"))
 
-# Прогресс
-@dp.message(F.text.lower() == "📈 прогресс")
+
+@dp.message(F.text == "✅ Чеклист")
+async def show_checklist(message: Message):
+    tasks = load_json(CHECKLIST_FILE)
+    if not tasks:
+        await message.answer("Задачи пока не добавлены.")
+    else:
+        for idx, task in enumerate(tasks):
+            text = f"☑️ {task['text']} {'✅' if task.get('done') else '❌'}"
+            await message.answer(text, reply_markup=build_task_inline_kb(idx))
+        await message.answer("✍️ Добавить задачу:", reply_markup=build_task_inline_kb("add"))
+
+
+@dp.message(F.text == "📈 Прогресс")
 async def show_progress(message: Message):
-    tasks = load_json("data/checklist.json")
-    goals = load_json("data/goals.json")
-    total = len(tasks) + len(goals)
-    completed = len([t for t in tasks if t.startswith("✅")]) + len([g for g in goals if g.startswith("✅")])
-    bar = progress_bar(completed, total)
+    tasks = load_json(CHECKLIST_FILE)
+    goals = load_json(GOALS_FILE)
+    all_items = tasks + goals
+    done = sum(1 for item in all_items if item.get("done"))
+    total = len(all_items)
+    bar = progress_bar(done, total)
     await message.answer(f"📊 Общий прогресс:\n{bar}")
 
-# Обработка inline-кнопок
-@dp.callback_query(F.data == "add_task")
-async def handle_add_task(callback: types.CallbackQuery):
-    await callback.message.answer("Введи текст задачи:")
-    waiting_for_task.add(callback.from_user.id)
+
+@dp.callback_query(F.data.startswith("add_task"))
+async def ask_new_task(callback: CallbackQuery):
+    await callback.message.answer("Напиши задачу, которую хочешь добавить:")
     await callback.answer()
+    dp.message.register(handle_new_task, F.text)
 
-@dp.callback_query(F.data == "add_goal")
-async def handle_add_goal(callback: types.CallbackQuery):
-    await callback.message.answer("Введи текст цели:")
-    waiting_for_goal.add(callback.from_user.id)
+
+async def handle_new_task(message: Message):
+    tasks = load_json(CHECKLIST_FILE)
+    tasks.append({"text": message.text, "done": False})
+    save_json(CHECKLIST_FILE, tasks)
+    await message.answer("Задача добавлена ✅")
+    dp.message.unregister(handle_new_task)
+
+
+@dp.callback_query(F.data.startswith("add_goal"))
+async def ask_new_goal(callback: CallbackQuery):
+    await callback.message.answer("Напиши цель, которую хочешь добавить:")
     await callback.answer()
+    dp.message.register(handle_new_goal, F.text)
 
-@dp.message(F.text)
-async def handle_text_entry(message: Message):
-    if message.from_user.id in waiting_for_task:
-        tasks = load_json("data/checklist.json")
-        tasks.append(message.text)
-        save_json("data/checklist.json", tasks)
-        waiting_for_task.remove(message.from_user.id)
-        await message.answer("Задача добавлена ✅")
-    elif message.from_user.id in waiting_for_goal:
-        goals = load_json("data/goals.json")
-        goals.append(message.text)
-        save_json("data/goals.json", goals)
-        waiting_for_goal.remove(message.from_user.id)
-        await message.answer("Цель добавлена ✅")
 
-# Запуск
+async def handle_new_goal(message: Message):
+    goals = load_json(GOALS_FILE)
+    goals.append({"text": message.text, "done": False})
+    save_json(GOALS_FILE, goals)
+    await message.answer("Цель добавлена ✅")
+    dp.message.unregister(handle_new_goal)
+
+
+@dp.callback_query(F.data.startswith("task_done"))
+async def mark_task_done(callback: CallbackQuery):
+    idx = int(callback.data.split(":")[1])
+    tasks = load_json(CHECKLIST_FILE)
+    if 0 <= idx < len(tasks):
+        tasks[idx]["done"] = True
+        save_json(CHECKLIST_FILE, tasks)
+        await callback.message.edit_text(f"☑️ {tasks[idx]['text']} ✅")
+    await callback.answer("Задача отмечена как выполнена!")
+
+
+@dp.callback_query(F.data.startswith("task_failed"))
+async def mark_task_failed(callback: CallbackQuery):
+    idx = int(callback.data.split(":")[1])
+    tasks = load_json(CHECKLIST_FILE)
+    if 0 <= idx < len(tasks):
+        tasks[idx]["done"] = False
+        save_json(CHECKLIST_FILE, tasks)
+        await callback.message.edit_text(f"☑️ {tasks[idx]['text']} ❌")
+    await callback.answer("Задача отмечена как невыполненная.")
+
+
+@dp.callback_query(F.data.startswith("goal_done"))
+async def mark_goal_done(callback: CallbackQuery):
+    idx = int(callback.data.split(":")[1])
+    goals = load_json(GOALS_FILE)
+    if 0 <= idx < len(goals):
+        goals[idx]["done"] = True
+        save_json(GOALS_FILE, goals)
+        await callback.message.edit_text(f"🎯 {goals[idx]['text']} ✅")
+    await callback.answer("Цель выполнена!")
+
+
+@dp.callback_query(F.data.startswith("goal_failed"))
+async def mark_goal_failed(callback: CallbackQuery):
+    idx = int(callback.data.split(":")[1])
+    goals = load_json(GOALS_FILE)
+    if 0 <= idx < len(goals):
+        goals[idx]["done"] = False
+        save_json(GOALS_FILE, goals)
+        await callback.message.edit_text(f"🎯 {goals[idx]['text']} ❌")
+    await callback.answer("Цель помечена как не выполнена.")
+
+
 async def main():
     scheduler.start()
     await dp.start_polling(bot)
 
-if __name__ == "__main__":
-    import asyncio
+if __name__ == '__main__':
     asyncio.run(main())
