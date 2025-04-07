@@ -6,13 +6,14 @@ from aiogram.utils.markdown import hbold
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters.command import CommandStart
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from aiogram.client.default import DefaultBotProperties
 import asyncio
 import os
 import json
 from keyboards import main_menu_kb, checklist_inline_kb, goals_inline_kb
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
 scheduler = AsyncIOScheduler()
 
