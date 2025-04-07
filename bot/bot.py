@@ -1,41 +1,39 @@
 import os
 import json
+import random
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.types import Message, FSInputFile, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart, Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import matplotlib.pyplot as plt
 
-# --- Загрузка .env ---
+# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 USER_ID = int(os.getenv("USER_ID"))
 
-# --- Инициализация бота и диспетчера ---
+# Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
-scheduler = AsyncIOScheduler()
 
-# --- Клавиатуры ---
-main_kb = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-    [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="🧠 Цели")],
-    [KeyboardButton(text="✅ Чеклист"), KeyboardButton(text="📈 Прогресс")]
+# Главная клавиатура (Inline)
+main_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📅 Расписание", callback_data="menu_schedule")],
+    [InlineKeyboardButton(text="🧠 Цели", callback_data="menu_goals")],
+    [InlineKeyboardButton(text="✅ Чеклист", callback_data="menu_checklist")],
+    [InlineKeyboardButton(text="📈 Прогресс", callback_data="menu_progress")]
 ])
 
-progress_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="📤 Скачать график", callback_data="download_progress")]
-])
+# Вспомогательные функции
 
-# --- Вспомогательные функции ---
 def load_json(path, default=[]):
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return default
@@ -45,46 +43,66 @@ def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def generate_progress_chart():
-    today = datetime.today().date()
-    dates = [(today - timedelta(days=i)) for i in range(6, -1, -1)]
-    progress = []
-    for date in dates:
-        date_str = date.isoformat()
-        checklist = load_json("data/checklist.json", [])
-        total = [i for i in checklist if i.get("date") == date_str]
-        done = [i for i in total if i.get("done")]
-        percent = int(len(done) / len(total) * 100) if total else 0
-        progress.append(percent)
+def get_random_quote():
+    try:
+        with open("data/quotes.txt", encoding="utf-8") as f:
+            quotes = [line.strip() for line in f if line.strip()]
+        return random.choice(quotes)
+    except Exception:
+        return "Каждый день — шанс начать заново."
 
-    plt.figure(figsize=(8, 4))
-    plt.plot([d.strftime("%a") for d in dates], progress, marker="o")
-    plt.title("Прогресс за неделю")
-    plt.xlabel("День")
-    plt.ylabel("% выполнения")
-    plt.grid(True)
-    path = "data/progress_chart.png"
-    plt.savefig(path)
-    plt.close()
-    return path
+async def send_quote(bot: Bot, user_id: int):
+    quote = get_random_quote()
+    await bot.send_message(user_id, f"💬 Цитата дня:\n{quote}")
 
-# --- Обработчики ---
+# Команды
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     await message.answer("Привет, Ден! Я твой помощник по распорядку дня!", reply_markup=main_kb)
 
-@dp.message(F.text == "📈 Прогресс")
-async def show_progress(message: Message):
-    path = generate_progress_chart()
-    await message.answer_photo(FSInputFile(path), caption="Вот твой прогресс за последнюю неделю:", reply_markup=progress_kb)
-
-@dp.callback_query(F.data == "download_progress")
-async def send_chart(callback: types.CallbackQuery):
-    await callback.message.answer_document(FSInputFile("data/progress_chart.png"), caption="📊 Твой прогресс")
+@dp.callback_query(F.data == "menu_schedule")
+async def menu_schedule(callback: CallbackQuery):
+    schedule = load_json("data/schedule.json", [])
+    text = "📅 Расписание на день:\n" + "\n".join([f"{item['time']} — {item['activity']}" for item in schedule])
+    await callback.message.answer(text)
     await callback.answer()
 
-# --- Запуск ---
+@dp.callback_query(F.data == "menu_checklist")
+async def menu_checklist(callback: CallbackQuery):
+    checklist = load_json("data/checklist.json", [])
+    if not checklist:
+        await callback.message.answer("Чеклист пуст. Добавь задачи.")
+    else:
+        text = "📝 Чеклист задач:\n" + "\n".join([f"- {item['task']}" for item in checklist])
+        await callback.message.answer(text)
+    await callback.answer()
+
+@dp.callback_query(F.data == "menu_goals")
+async def menu_goals(callback: CallbackQuery):
+    goals = load_json("data/goals.json", [])
+    if not goals:
+        await callback.message.answer("Целей пока нет.")
+    else:
+        text = "🎯 Твои цели:\n" + "\n".join([f"- {g}" for g in goals])
+        await callback.message.answer(text)
+    await callback.answer()
+
+@dp.callback_query(F.data == "menu_progress")
+async def menu_progress(callback: CallbackQuery):
+    checklist = load_json("data/checklist.json", [])
+    goals = load_json("data/goals.json", [])
+    done_tasks = [t for t in checklist if t.get("done")]
+    done_goals = [g for g in goals if isinstance(g, dict) and g.get("done")]
+
+    progress = (len(done_tasks) + len(done_goals)) / max(len(checklist) + len(goals), 1) * 100
+    await callback.message.answer(f"📈 Прогресс выполнения: {int(progress)}%")
+    await callback.answer()
+
+# Планировщик
 async def main():
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(send_quote, 'cron', hour=6, minute=0, args=[bot, USER_ID])
     scheduler.start()
     await dp.start_polling(bot)
 
@@ -93,4 +111,4 @@ if __name__ == "__main__":
         print("[INFO] Бот запускается...")
         asyncio.run(main())
     except Exception as e:
-        print("[ERROR] Ошибка:", e)
+        print("[ERROR] Ошибка при запуске:", e)
