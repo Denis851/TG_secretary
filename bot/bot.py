@@ -63,9 +63,6 @@ async def show_schedule(message: Message):
 
     await message.answer(text)
 
-
-
-
 @dp.message(F.text.lower() == "🧠 цели")
 async def show_goals(message: Message):
     goals = load_json("data/goals.json")
@@ -76,8 +73,6 @@ async def show_goals(message: Message):
         [InlineKeyboardButton(text="✅ Выполнено", callback_data=f"goal_done:{i}")]
         for i, g in enumerate(goals)
     ] + [[InlineKeyboardButton(text="➕ Добавить цель", callback_data="add_goal")]])
-
-
 
 @dp.message(F.text.lower() == "✅ чеклист")
 async def show_checklist(message: Message):
@@ -90,7 +85,6 @@ async def show_checklist(message: Message):
         for i, t in enumerate(tasks)
     ] + [[InlineKeyboardButton(text="➕ Добавить задачу", callback_data="add_task")]])
 
-
 @dp.message(F.text.lower() == "📊 прогресс")
 async def show_progress(message: Message):
     tasks = load_json("data/checklist.json")
@@ -98,7 +92,7 @@ async def show_progress(message: Message):
     done_tasks = len([t for t in tasks if str(t).startswith("✅")])
     done_goals = len([g for g in goals if str(g).startswith("✅")])
     task_bar = progress_bar(done_tasks, len(tasks))
-	await message.answer(f"📊 Прогресс целей:{goal_bar}")
+await message.answer(f"📊 Прогресс целей:{goal_bar}")
 
 @dp.callback_query(F.data.startswith("task_done:"))
 async def mark_task_done(callback: CallbackQuery):
