@@ -54,8 +54,16 @@ async def cmd_start(message: Message):
 async def show_schedule(message: Message):
     schedule = load_json("data/schedule.json")
     if not schedule:
-async def cmd_start(message: Message):
-    await message.answer("Нет расписания")
+        await message.answer("Расписание пока не задано. Добавь через кнопку.")
+        return
+
+    text = "📅 Текущее расписание:\n\n"
+    for time, task in schedule.items():
+        text += f"{time} — {task}\n"
+
+    await message.answer(text)
+
+
 
 
 @dp.message(F.text.lower() == "🧠 цели")
