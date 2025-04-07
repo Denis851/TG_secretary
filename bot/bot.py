@@ -12,7 +12,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart, Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# Загрузка переменных окружения
+# Загрузка .env переменных
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 USER_ID = int(os.getenv("USER_ID"))
@@ -21,23 +21,24 @@ USER_ID = int(os.getenv("USER_ID"))
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
-# --- Клавиатура ---
-main_kb = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="🌅 Утро"), KeyboardButton(text="💻 Продуктивность")],
-    [KeyboardButton(text="🧘 Отдых"), KeyboardButton(text="📊 Отчёт")],
-    [KeyboardButton(text="📆 Распорядок дня")]
-], resize_keyboard=True)
+# --- Основные клавиатуры ---
+main_kb = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+    [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="📝 Чеклист")],
+    [KeyboardButton(text="🎯 Цели"), KeyboardButton(text="💬 Цитата")],
+])
 
 mood_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="😊", callback_data="mood_happy"),
-     InlineKeyboardButton(text="😐", callback_data="mood_neutral"),
-     InlineKeyboardButton(text="😞", callback_data="mood_sad")]
+    [
+        InlineKeyboardButton(text="😊", callback_data="mood_happy"),
+        InlineKeyboardButton(text="😐", callback_data="mood_neutral"),
+        InlineKeyboardButton(text="😞", callback_data="mood_sad"),
+    ]
 ])
 
 # --- Вспомогательные функции ---
 def load_json(path, default=[]):
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return default
@@ -59,22 +60,84 @@ async def send_quote(bot: Bot, user_id: int):
     quote = get_random_quote()
     await bot.send_message(user_id, f"💬 Цитата дня:\n{quote}")
 
-# --- Распорядок дня ---
-@dp.message(F.text.lower() == "📆 распорядок дня")
-async def show_schedule(message: Message):
-    schedule = load_json("data/daily_schedule.json", [])
-    if not schedule:
-        await message.answer("Расписание дня пока не задано. Добавьте его в файл data/daily_schedule.json")
-        return
-    text = "📅 <b>Твой распорядок дня:</b>\n"
-    for item in schedule:
-        text += f"⏰ <b>{item['time']}</b>: {item['activity']}\n"
-    await message.answer(text, parse_mode="HTML")
+# --- Расписание по умолчанию ---
+def get_default_schedule():
+    return [
+        {"time": "05:30", "activity": "Подъём, вода, разминка, медитация"},
+        {"time": "06:00", "activity": "Утренняя тренировка"},
+        {"time": "07:00", "activity": "Работа / Фриланс"},
+        {"time": "09:30", "activity": "Перерыв (чай, прогулка)"},
+        {"time": "10:00", "activity": "Обучение / Саморазвитие"},
+        {"time": "11:30", "activity": "Обед + близкие"},
+        {"time": "12:30", "activity": "Работа 2"},
+        {"time": "14:30", "activity": "Отдых / Сон"},
+        {"time": "15:30", "activity": "Креатив / Проекты"},
+        {"time": "17:00", "activity": "Семья / Прогулка"},
+        {"time": "19:00", "activity": "Ужин, отдых"},
+        {"time": "20:00", "activity": "Личное время"},
+        {"time": "21:30", "activity": "Подготовка ко сну"},
+        {"time": "22:00", "activity": "Сон"},
+    ]
 
-# --- Главная функция запуска ---
+# --- Команды ---
+@dp.message(CommandStart())
+async def cmd_start(message: Message):
+    await message.answer("Привет, Денис! Я твой ИИ-помощник. Готов идти по расписанию?", reply_markup=main_kb)
+
+@dp.message(F.text.lower() == "💬 цитата")
+async def cmd_quote(message: Message):
+    await message.answer(f"💬 {get_random_quote()}")
+
+@dp.message(F.text.lower() == "📅 расписание")
+async def cmd_schedule(message: Message):
+    schedule = load_json("data/schedule.json", get_default_schedule())
+    text = "📅 Расписание на день:\n"
+    text += "\n".join([f"{item['time']} — {item['activity']}" for item in schedule])
+    await message.answer(text)
+
+@dp.message(F.text.lower() == "🎯 цели")
+async def cmd_goals(message: Message):
+    goals = load_json("data/goals.json", [])
+    if not goals:
+        await message.answer("Целей пока нет.")
+    else:
+        text = "🎯 Твои цели:\n" + "\n".join([f"- {g}" for g in goals])
+        await message.answer(text)
+
+@dp.message(Command("цель"))
+async def cmd_add_goal(message: Message):
+    text = message.text.replace("/цель", "").strip()
+    if not text:
+        await message.answer("✍️ Напиши цель после команды /цель [текст цели]")
+        return
+    goals = load_json("data/goals.json", [])
+    goals.append(text)
+    save_json("data/goals.json", goals)
+    await message.answer("✅ Цель добавлена!")
+
+@dp.message(F.text.lower() == "📝 чеклист")
+async def cmd_checklist(message: Message):
+    checklist = load_json("data/checklist.json", [])
+    if not checklist:
+        await message.answer("Чеклист пуст. Добавь задачи командой /добавить_задачу")
+        return
+    text = "📋 Текущий чеклист:\n" + "\n".join([f"- {item['task']}" for item in checklist])
+    await message.answer(text)
+
+@dp.message(Command("добавить_задачу"))
+async def cmd_add_task(message: Message):
+    text = message.text.replace("/добавить_задачу", "").strip()
+    if not text:
+        await message.answer("⚠️ Напиши задачу после команды, например: /добавить_задачу Помыть посуду")
+        return
+    checklist = load_json("data/checklist.json", [])
+    checklist.append({"task": text, "date": datetime.now().strftime("%Y-%m-%d")})
+    save_json("data/checklist.json", checklist)
+    await message.answer("✅ Задача добавлена в чеклист!")
+
+# --- Главная функция ---
 async def main():
     scheduler = AsyncIOScheduler()
-    # Ежедневная цитата
     scheduler.add_job(send_quote, 'cron', hour=6, minute=0, args=[bot, USER_ID])
     scheduler.start()
     await dp.start_polling(bot)
