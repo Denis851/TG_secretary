@@ -17,14 +17,7 @@ USER_ID = int(os.getenv("USER_ID", "0"))
 if not BOT_TOKEN or USER_ID == 0:
     raise ValueError("Не задан BOT_TOKEN или USER_ID!")
 
-
-# Инициализация бота
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher()
-scheduler = AsyncIOScheduler()
-
-# --- Клавиатуры ---
-def get main_kb = ReplyKeyboardMarkup(
+main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📅 Расписание")],
         [KeyboardButton(text="🧠 Цели")],
@@ -32,6 +25,18 @@ def get main_kb = ReplyKeyboardMarkup(
         [KeyboardButton(text="📊 Прогресс")]
     ],
     resize_keyboard=True)
+
+# Инициализация бота
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+dp = Dispatcher()
+scheduler = AsyncIOScheduler()
+
+# --- Клавиатуры ---
+def get_main_keyboard():
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="🧠 Цели")],
+        [KeyboardButton(text="✅ Чеклист"), KeyboardButton(text="📊 Прогресс")]
+    ], resize_keyboard=True)
 
 def load_json(path, default=[]):
     try:
