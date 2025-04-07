@@ -1,112 +1,125 @@
 import os
 import json
+import random
 import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums import ParseMode
+from aiogram.types import Message, FSInputFile, CallbackQuery
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import CommandStart, Command
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from keyboards import main_kb, inline_actions_kb
+from keyboards import main_menu_kb, checklist_inline_kb, goals_inline_kb
 
-# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 USER_ID = int(os.getenv("USER_ID", 0))
 
-# Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
-# Утилиты для работы с JSON
+# ====== Утилиты ======
 
-def load_json(path, default=[]):
-    try:
-        with open(path, encoding='utf-8') as f:
-            return json.load(f)
-    except:
-        return default
+DATA_DIR = "data"
+os.makedirs(DATA_DIR, exist_ok=True)
 
-def save_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
+def load_json(name, default=[]):
+    path = os.path.join(DATA_DIR, name)
+    if not os.path.exists(path): return default
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+def save_json(name, data):
+    path = os.path.join(DATA_DIR, name)
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# Хендлеры
+def get_random_quote():
+    quotes = load_json("quotes.txt", [])
+    return random.choice(quotes) if quotes else "Каждый день — шанс начать заново."
+
+# ====== Хендлеры ======
 
 @dp.message(CommandStart())
-async def start_handler(message: Message):
-    await message.answer("Привет! 👋 Я твой ИИ-секретарь. Выбери действие:", reply_markup=main_kb)
+async def cmd_start(message: Message):
+    await message.answer("👋 Привет! Я ИИ-секретарь. Что делаем?", reply_markup=main_menu_kb)
 
-@dp.message(F.text == "📅 Расписание")
-async def schedule_handler(message: Message):
-    await message.answer("🔔 Напоминания и расписание будут активированы по мере настройки...")
+@dp.message(F.text == "Чеклист")
+async def show_checklist(message: Message):
+    checklist = load_json("checklist.json")
+    if not checklist:
+        await message.answer("📋 Чеклист пуст.")
+    else:
+        text = "📝 Твои задачи на день:\n" + "\n".join([f"- {item}" for item in checklist])
+        await message.answer(text)
+    await message.answer("Что сделать?", reply_markup=checklist_inline_kb)
 
-@dp.message(F.text == "🧠 Цели")
-async def goals_handler(message: Message):
-    goals = load_json("data/goals.json", [])
+@dp.message(F.text == "Цели")
+async def show_goals(message: Message):
+    goals = load_json("goals.json")
     if not goals:
-        await message.answer("🎯 Целей пока нет. Добавь цель с помощью кнопки ниже:", reply_markup=inline_actions_kb)
+        await message.answer("🎯 Целей пока нет.")
     else:
         text = "🎯 Твои цели:\n" + "\n".join([f"- {g}" for g in goals])
-        await message.answer(text, reply_markup=inline_actions_kb)
+        await message.answer(text)
+    await message.answer("Что сделать?", reply_markup=goals_inline_kb)
 
-@dp.message(F.text == "✅ Чеклист")
-async def checklist_handler(message: Message):
-    tasks = load_json("data/checklist.json", [])
-    if not tasks:
-        await message.answer("📋 Чеклист пуст. Добавь задачу:", reply_markup=inline_actions_kb)
-    else:
-        text = "📋 Текущий чеклист:\n" + "\n".join([f"- {t['task']}" for t in tasks])
-        await message.answer(text, reply_markup=inline_actions_kb)
+@dp.message(F.text == "Прогресс")
+async def show_progress(message: Message):
+    await message.answer("📈 Визуализация и аналитика в разработке.")
 
-@dp.message(F.text == "📊 Прогресс")
-async def progress_handler(message: Message):
-    await message.answer("📈 Визуализация прогресса в разработке. Следи за обновлениями!")
+@dp.message(F.text == "Расписание")
+async def show_schedule(message: Message):
+    await message.answer("📅 Подключение редактора расписания скоро.")
 
-@dp.callback_query(F.data.in_(["done", "not_done", "add_task", "add_goal"]))
-async def handle_action(callback: CallbackQuery):
-    data = callback.data
-    if data == "done":
-        await callback.message.answer("✅ Отмечено как выполнено!")
-    elif data == "not_done":
-        await callback.message.answer("❌ Отмечено как не выполнено!")
-    elif data == "add_task":
-        await callback.message.answer("✍️ Введи новую задачу (чеклист):")
-    elif data == "add_goal":
-        await callback.message.answer("🎯 Напиши свою новую цель:")
+@dp.callback_query(F.data == "add_task")
+async def cb_add_task(callback: CallbackQuery):
+    await callback.message.answer("✍️ Напиши задачу, которую нужно добавить в чеклист:")
     await callback.answer()
+    dp.message.register(save_task_once)
+
+async def save_task_once(message: Message):
+    checklist = load_json("checklist.json")
+    checklist.append(message.text)
+    save_json("checklist.json", checklist)
+    await message.answer("✅ Задача добавлена!", reply_markup=main_menu_kb)
+    dp.message.unregister(save_task_once)
+
+@dp.callback_query(F.data == "add_goal")
+async def cb_add_goal(callback: CallbackQuery):
+    await callback.message.answer("🎯 Напиши цель, которую нужно добавить:")
+    await callback.answer()
+    dp.message.register(save_goal_once)
+
+async def save_goal_once(message: Message):
+    goals = load_json("goals.json")
+    goals.append(message.text)
+    save_json("goals.json", goals)
+    await message.answer("🎯 Цель добавлена!", reply_markup=main_menu_kb)
+    dp.message.unregister(save_goal_once)
 
 @dp.message(Command("отчёт"))
-async def report_handler(message: Message):
+async def cmd_report(message: Message):
     today = datetime.today().strftime("%Y-%m-%d")
-    tasks = load_json("data/checklist.json", [])
-    goals = load_json("data/goals.json", [])
-    mood = load_json("data/mood.json", [])
-    report = f"📝 Отчёт за {today}\n"
-    report += "\n✅ Задачи:\n" + "\n".join([f"- {t['task']}" for t in tasks])
-    report += "\n🎯 Цели:\n" + "\n".join([f"- {g}" for g in goals])
-    today_mood = next((m['mood'] for m in reversed(mood) if today in m['time']), '—')
-    report += f"\n\n😌 Настроение: {today_mood}\n"
-    os.makedirs("data", exist_ok=True)
-    path = f"data/report_{today}.txt"
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(report)
-    await message.answer_document(FSInputFile(path), caption="📤 Вот твой отчёт")
+    checklist = load_json("checklist.json")
+    goals = load_json("goals.json")
+    report = f"📝 Отчёт за {today}\n\n✅ Задачи:\n" + "\n".join([f"- {t}" for t in checklist])
+    report += "\n\n🎯 Цели:\n" + "\n".join([f"- {g}" for g in goals])
 
-# Запуск бота
+    path = f"{DATA_DIR}/report_{today}.txt"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(report)
+
+    await message.answer_document(document=FSInputFile(path), caption="📤 Твой отчёт готов!")
+
+# ====== Запуск ======
 
 async def main():
-    scheduler = AsyncIOScheduler()
-    scheduler.start()
+    print("[INFO] Бот запущен")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except Exception as e:
-        print("[ERROR] Ошибка запуска:", e)
+    asyncio.run(main())
