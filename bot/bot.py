@@ -13,7 +13,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 # Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-USER_ID = int(os.getenv("USER_ID"))
+USER_ID = int(os.getenv("USER_ID", "0"))
+if not BOT_TOKEN or USER_ID == 0:
+    raise ValueError("Не задан BOT_TOKEN или USER_ID!")
+
 
 # Инициализация бота
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -21,17 +24,18 @@ dp = Dispatcher()
 scheduler = AsyncIOScheduler()
 
 # --- Клавиатуры ---
-main_kb = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="🧠 Цели")],
-    [KeyboardButton(text="✅ Чеклист"), KeyboardButton(text="📊 Прогресс")]
-], resize_keyboard=True)
+def get_main_keyboard():
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="🧠 Цели")],
+        [KeyboardButton(text="✅ Чеклист"), KeyboardButton(text="📊 Прогресс")]
+    ], resize_keyboard=True)
 
 def load_json(path, default=[]):
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except:
-        return default
+  except (FileNotFoundError, json.JSONDecodeError):
+    return default
 
 def save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -50,12 +54,9 @@ async def cmd_start(message: Message):
 async def show_schedule(message: Message):
     schedule = load_json("data/schedule.json")
     if not schedule:
-        await message.answer("Нет сохранённого расписания.")
-        return
-    text = "📅 Текущее расписание:"
-    for item in schedule:
-        text += f"{item['time']} — {item['activity']}\n"
-    await message.answer(text)
+async def cmd_start(message: Message):
+    await message.answer("Нет расписания")
+
 
 @dp.message(F.text.lower() == "🧠 цели")
 async def show_goals(message: Message):
@@ -67,8 +68,8 @@ async def show_goals(message: Message):
         [InlineKeyboardButton(text="✅ Выполнено", callback_data=f"goal_done:{i}")]
         for i, g in enumerate(goals)
     ] + [[InlineKeyboardButton(text="➕ Добавить цель", callback_data="add_goal")]])
-    text = "🧠 Цели:" + "".join([f"• {g}" for g in goals])
-    await message.answer(text, reply_markup=kb)
+
+
 
 @dp.message(F.text.lower() == "✅ чеклист")
 async def show_checklist(message: Message):
@@ -80,8 +81,7 @@ async def show_checklist(message: Message):
         [InlineKeyboardButton(text="✅ Выполнено", callback_data=f"task_done:{i}")]
         for i, t in enumerate(tasks)
     ] + [[InlineKeyboardButton(text="➕ Добавить задачу", callback_data="add_task")]])
-    text = "📋 Чеклист:" + "".join([f"• {t}" for t in tasks])
-    await message.answer(text, reply_markup=kb)
+
 
 @dp.message(F.text.lower() == "📊 прогресс")
 async def show_progress(message: Message):
@@ -90,10 +90,7 @@ async def show_progress(message: Message):
     done_tasks = len([t for t in tasks if str(t).startswith("✅")])
     done_goals = len([g for g in goals if str(g).startswith("✅")])
     task_bar = progress_bar(done_tasks, len(tasks))
-    goal_bar = progress_bar(done_goals, len(goals))
-    await message.answer(f"📊 Прогресс задач:{task_bar}")
-
-await message.answer(f"🧠 Прогресс целей:{goal_bar}")
+	await message.answer(f"📊 Прогресс целей:{goal_bar}")
 
 @dp.callback_query(F.data.startswith("task_done:"))
 async def mark_task_done(callback: CallbackQuery):
@@ -151,5 +148,7 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
+
 
