@@ -12,7 +12,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart, Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from bot.analyze import daily_report
+from analyze import daily_report
 
 # Загрузка .env
 load_dotenv()
