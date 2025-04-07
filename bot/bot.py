@@ -85,14 +85,15 @@ async def show_checklist(message: Message):
         for i, t in enumerate(tasks)
     ] + [[InlineKeyboardButton(text="➕ Добавить задачу", callback_data="add_task")]])
 
-@dp.message(F.text.lower() == "📊 прогресс")
-async def show_progress(message: Message):
-    tasks = load_json("data/checklist.json")
+@dp.message(F.text.lower() == "📈 прогресс")
+async def show_goal_progress(message: Message):
     goals = load_json("data/goals.json")
-    done_tasks = len([t for t in tasks if str(t).startswith("✅")])
-    done_goals = len([g for g in goals if str(g).startswith("✅")])
-    task_bar = progress_bar(done_tasks, len(tasks))
-await message.answer(f"📊 Прогресс целей:{goal_bar}")
+    completed = sum(1 for g in goals if g.startswith("✅"))
+    total = len(goals)
+    percent = int((completed / total) * 100) if total else 0
+    goal_bar = "🛑" * (10 - percent // 10) + "✅" * (percent // 10)
+
+    await message.answer(f"📊 Прогресс целей:\n{goal_bar}")
 
 @dp.callback_query(F.data.startswith("task_done:"))
 async def mark_task_done(callback: CallbackQuery):
