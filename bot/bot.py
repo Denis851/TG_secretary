@@ -24,11 +24,14 @@ dp = Dispatcher()
 scheduler = AsyncIOScheduler()
 
 # --- Клавиатуры ---
-def get_main_keyboard():
-    return ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="🧠 Цели")],
-        [KeyboardButton(text="✅ Чеклист"), KeyboardButton(text="📊 Прогресс")]
-    ], resize_keyboard=True)
+def get main_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="📅 Расписание")],
+        [KeyboardButton(text="🧠 Цели")],
+        [KeyboardButton(text="✅ Чеклист")],
+        [KeyboardButton(text="📊 Прогресс")]
+    ],
+    resize_keyboard=True)
 
 def load_json(path, default=[]):
     try:
