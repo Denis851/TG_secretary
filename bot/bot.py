@@ -31,11 +31,10 @@ def get_main_keyboard():
     ], resize_keyboard=True)
 
 def load_json(path, default=[]):
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-  except (FileNotFoundError, json.JSONDecodeError):
-    return default
+ try:
+    goals = load_json("data/goals.json")
+except (FileNotFoundError, json.JSONDecodeError):
+    goals = []
 
 def save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
