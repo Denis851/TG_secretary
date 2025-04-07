@@ -131,13 +131,10 @@ async def cmd_report(message: Message):
     mood = load_json("data/mood.json", [])
 
     report = f"📝 Отчёт за {today}"
-    report += "
-✅ Выполненные задачи:
-"
+    report += "✅ Выполненные задачи:"
     for item in checklist:
         if item.get("date") == today:
-            report += f" - {item.get('task', 'Без названия')}
-"
+            report += f" - {item.get('task', 'Без названия')}"
     report += "🎯 Цели:" + "".join([f" - {goal}" for goal in goals])
     today_mood = next((m['mood'] for m in reversed(mood) if today in m['time']), '—')
     report += f"😌 Настроение: {today_mood}"
