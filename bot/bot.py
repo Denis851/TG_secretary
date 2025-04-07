@@ -55,8 +55,7 @@ async def show_schedule(message: Message):
     text = "📅 Текущее расписание:
 "
     for item in schedule:
-        text += f"{item['time']} — {item['activity']}
-"
+        text += f"{item['time']} — {item['activity']}\n"
     await message.answer(text)
 
 @dp.message(F.text.lower() == "🧠 цели")
