@@ -91,8 +91,7 @@ async def show_progress(message: Message):
     done_goals = len([g for g in goals if str(g).startswith("✅")])
     task_bar = progress_bar(done_tasks, len(tasks))
     goal_bar = progress_bar(done_goals, len(goals))
-    await message.answer(f"📊 Прогресс задач:
-{task_bar}
+    await message.answer(f"📊 Прогресс задач:{task_bar}")
 
 🧠 Прогресс целей:
 {goal_bar}")
