@@ -93,8 +93,7 @@ async def show_progress(message: Message):
     goal_bar = progress_bar(done_goals, len(goals))
     await message.answer(f"📊 Прогресс задач:{task_bar}")
 
-🧠 Прогресс целей:
-{goal_bar}")
+await message.answer(f"🧠 Прогресс целей:{goal_bar}")
 
 @dp.callback_query(F.data.startswith("task_done:"))
 async def mark_task_done(callback: CallbackQuery):
