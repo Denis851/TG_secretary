@@ -67,9 +67,7 @@ async def show_goals(message: Message):
         [InlineKeyboardButton(text="✅ Выполнено", callback_data=f"goal_done:{i}")]
         for i, g in enumerate(goals)
     ] + [[InlineKeyboardButton(text="➕ Добавить цель", callback_data="add_goal")]])
-    text = "🧠 Цели:
-" + "
-".join([f"• {g}" for g in goals])
+    text = "🧠 Цели:" + "".join([f"• {g}" for g in goals])
     await message.answer(text, reply_markup=kb)
 
 @dp.message(F.text.lower() == "✅ чеклист")
@@ -82,9 +80,7 @@ async def show_checklist(message: Message):
         [InlineKeyboardButton(text="✅ Выполнено", callback_data=f"task_done:{i}")]
         for i, t in enumerate(tasks)
     ] + [[InlineKeyboardButton(text="➕ Добавить задачу", callback_data="add_task")]])
-    text = "📋 Чеклист:
-" + "
-".join([f"• {t}" for t in tasks])
+    text = "📋 Чеклист:" + "".join([f"• {t}" for t in tasks])
     await message.answer(text, reply_markup=kb)
 
 @dp.message(F.text.lower() == "📊 прогресс")
