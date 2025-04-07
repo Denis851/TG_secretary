@@ -120,9 +120,7 @@ async def cmd_checklist(message: Message):
     if not checklist:
         await message.answer("Чеклист пуст. Добавь задачи в файл checklist.json.")
         return
-    text = "📝 Чеклист задач:
-" + "
-".join([f"- {item['task']}" for item in checklist])
+    text = "📝 Чеклист задач:" + "".join([f"- {item['task']}" for item in checklist])
     await message.answer(text)
 
 @dp.message(Command("отчёт"))
@@ -132,8 +130,7 @@ async def cmd_report(message: Message):
     goals = load_json("data/goals.json", [])
     mood = load_json("data/mood.json", [])
 
-    report = f"📝 Отчёт за {today}
-"
+    report = f"📝 Отчёт за {today}"
     report += "
 ✅ Выполненные задачи:
 "
@@ -141,14 +138,9 @@ async def cmd_report(message: Message):
         if item.get("date") == today:
             report += f" - {item.get('task', 'Без названия')}
 "
-    report += "
-🎯 Цели:
-" + "
-".join([f" - {goal}" for goal in goals])
+    report += "🎯 Цели:" + "".join([f" - {goal}" for goal in goals])
     today_mood = next((m['mood'] for m in reversed(mood) if today in m['time']), '—')
-    report += f"
-😌 Настроение: {today_mood}
-"
+    report += f"😌 Настроение: {today_mood}"
 
     path = f"data/report_{today}.txt"
     with open(path, "w", encoding="utf-8") as f:
