@@ -100,8 +100,7 @@ async def cmd_goals(message: Message):
     if not goals:
         await message.answer("Целей пока нет.")
     else:
-        text = "🎯 Твои цели:
-" + "
+        text = "🎯 Твои цели:" + "
 ".join([f"- {g}" for g in goals])
         await message.answer(text)
 
