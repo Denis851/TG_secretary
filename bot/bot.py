@@ -55,8 +55,7 @@ def get_random_quote():
 
 async def send_quote(bot: Bot, user_id: int):
     quote = get_random_quote()
-    await bot.send_message(user_id, f"💬 Цитата дня:
-{quote}")
+    await bot.send_message(user_id, f"💬 Цитата дня:\n{quote}")
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
