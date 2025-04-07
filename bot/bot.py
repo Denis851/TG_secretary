@@ -6,12 +6,16 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.types import Message, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    Message, FSInputFile, ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart, Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 USER_ID = int(os.getenv("USER_ID"))
@@ -19,25 +23,24 @@ USER_ID = int(os.getenv("USER_ID"))
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
-# --- Кнопки ---
-main_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="📅 Расписание", callback_data="schedule")],
-    [InlineKeyboardButton(text="🧠 Цели", callback_data="goals"), InlineKeyboardButton(text="✅ Чеклист", callback_data="checklist")],
-    [InlineKeyboardButton(text="📈 Прогресс", callback_data="progress")]
+# ---------- Клавиатуры ----------
+main_kb = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+    [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="📝 Чеклист")],
+    [KeyboardButton(text="🎯 Цели"), KeyboardButton(text="💬 Цитата")]
 ])
 
-goal_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="➕ Добавить цель", callback_data="add_goal")]
+mood_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [
+        InlineKeyboardButton(text="😊", callback_data="mood_happy"),
+        InlineKeyboardButton(text="😐", callback_data="mood_neutral"),
+        InlineKeyboardButton(text="😞", callback_data="mood_sad"),
+    ]
 ])
 
-checklist_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="➕ Добавить задачу", callback_data="add_task")]
-])
-
-# --- Вспомогательные функции ---
+# ---------- Функции ----------
 def load_json(path, default=[]):
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return default
@@ -47,89 +50,98 @@ def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def get_progress_bar(current, total):
-    filled = int(10 * current / total)
-    return "▓" * filled + "░" * (10 - filled)
+def get_random_quote():
+    try:
+        with open("data/quotes.txt", encoding="utf-8") as f:
+            quotes = [line.strip() for line in f if line.strip()]
+        return random.choice(quotes)
+    except Exception:
+        return "Каждый день — шанс начать заново."
 
-# --- Хэндлеры ---
+async def send_quote(bot: Bot, user_id: int):
+    quote = get_random_quote()
+    await bot.send_message(user_id, f"💬 Цитата дня:\n<i>{quote}</i>", parse_mode="HTML")
+
+# ---------- Расписание по умолчанию ----------
+def get_default_schedule():
+    return [
+        {"time": "05:30", "activity": "Подъём, вода, разминка, медитация"},
+        {"time": "06:00", "activity": "Утренняя тренировка"},
+        {"time": "07:00", "activity": "Работа / Фриланс"},
+        {"time": "09:30", "activity": "Перерыв (чай, прогулка)"},
+        {"time": "10:00", "activity": "Обучение / Саморазвитие"},
+        {"time": "11:30", "activity": "Обед + близкие"},
+        {"time": "12:30", "activity": "Работа 2"},
+        {"time": "14:30", "activity": "Отдых / Сон"},
+        {"time": "15:30", "activity": "Креатив / Проекты"},
+        {"time": "17:00", "activity": "Семья / Прогулка"},
+        {"time": "19:00", "activity": "Ужин, отдых"},
+        {"time": "20:00", "activity": "Личное время"},
+        {"time": "21:30", "activity": "Подготовка ко сну"},
+        {"time": "22:00", "activity": "Сон"},
+    ]
+
+# ---------- Обработчики ----------
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
-    await message.answer("Привет, Ден! Я твой помощник по распорядку дня!", reply_markup=main_kb)
+    await message.answer("👋 Привет, Денис! Готов идти по расписанию?", reply_markup=main_kb)
 
-@dp.callback_query(F.data == "schedule")
-async def show_schedule(callback: types.CallbackQuery):
-    schedule = load_json("data/schedule.json", [])
-    text = "📅 Расписание на день:\n" + "\n".join([f"{item['time']} — {item['activity']}" for item in schedule])
-    await callback.message.answer(text)
-    await callback.answer()
+@dp.message(F.text.lower() == "📅 расписание")
+async def cmd_schedule(message: Message):
+    schedule = load_json("data/schedule.json", get_default_schedule())
+    text = "📅 Твой день:\n" + "\n".join([f"{item['time']} — {item['activity']}" for item in schedule])
+    await message.answer(text)
 
-@dp.callback_query(F.data == "goals")
-async def show_goals(callback: types.CallbackQuery):
-    goals = load_json("data/goals.json", [])
-    total = len(goals)
-    done = sum([1 for g in goals if g.get("done")])
-    progress = get_progress_bar(done, total) if total else "—"
-
-    if goals:
-        text = "🧠 Твои цели:\n" + "\n".join([f"{i+1}. {'✅' if g.get('done') else '⬜'} {g['text']}" for i, g in enumerate(goals)])
-        text += f"\n\nПрогресс: {progress}"
-    else:
-        text = "Пока целей нет."
-
-    await callback.message.answer(text, reply_markup=goal_kb)
-    await callback.answer()
-
-@dp.callback_query(F.data == "add_goal")
-async def prompt_add_goal(callback: types.CallbackQuery):
-    await callback.message.answer("✍️ Напиши свою цель одним сообщением:")
-    dp['add_goal'] = True
-    await callback.answer()
-
-@dp.message()
-async def handle_goal_text(message: Message):
-    if dp.get('add_goal'):
-        dp['add_goal'] = False
-        goals = load_json("data/goals.json", [])
-        goals.append({"text": message.text, "done": False})
-        save_json("data/goals.json", goals)
-        await message.answer("🎯 Цель добавлена!", reply_markup=main_kb)
-
-@dp.callback_query(F.data == "checklist")
-async def show_checklist(callback: types.CallbackQuery):
+@dp.message(F.text.lower() == "📝 чеклист")
+async def cmd_checklist(message: Message):
     checklist = load_json("data/checklist.json", [])
-    today = datetime.today().strftime("%Y-%m-%d")
-    today_tasks = [t for t in checklist if t.get("date") == today]
-    total = len(today_tasks)
-    done = sum([1 for t in today_tasks if t.get("done")])
-    progress = get_progress_bar(done, total) if total else "—"
+    if not checklist:
+        await message.answer("Чеклист пуст. Добавь задачи командой:\n<code>/добавить_задачу Погладить кота</code>")
+        return
+    text = "📋 Текущий чеклист:\n" + "\n".join([f"🔘 {item['task']}" for item in checklist])
+    await message.answer(text)
 
-    if today_tasks:
-        text = "✅ Чеклист на сегодня:\n" + "\n".join([f"{i+1}. {'✅' if t.get('done') else '⬜'} {t['task']}" for i, t in enumerate(today_tasks)])
-        text += f"\n\nПрогресс: {progress}"
+@dp.message(Command("добавить_задачу"))
+async def cmd_add_task(message: Message):
+    text = message.text.replace("/добавить_задачу", "").strip()
+    if not text:
+        await message.answer("❗ После команды напиши текст задачи:\n<code>/добавить_задачу Выучить слова</code>")
+        return
+    checklist = load_json("data/checklist.json", [])
+    checklist.append({"task": text, "date": datetime.now().strftime("%Y-%m-%d")})
+    save_json("data/checklist.json", checklist)
+    await message.answer("✅ Задача добавлена!")
+
+@dp.message(F.text.lower() == "🎯 цели")
+async def cmd_goals(message: Message):
+    goals = load_json("data/goals.json", [])
+    if not goals:
+        await message.answer("Пока нет целей. Добавь командой:\n<code>/цель Стать лучшей версией себя</code>")
     else:
-        text = "Сегодняшний чеклист пуст."
+        text = "🎯 Твои цели:\n" + "\n".join([f"🔵 {goal}" for goal in goals])
+        await message.answer(text)
 
-    await callback.message.answer(text, reply_markup=checklist_kb)
-    await callback.answer()
+@dp.message(Command("цель"))
+async def cmd_add_goal(message: Message):
+    text = message.text.replace("/цель", "").strip()
+    if not text:
+        await message.answer("❗ После команды напиши цель:\n<code>/цель Читать по 10 страниц</code>")
+        return
+    goals = load_json("data/goals.json", [])
+    goals.append(text)
+    save_json("data/goals.json", goals)
+    await message.answer("🎯 Цель добавлена!")
 
-@dp.callback_query(F.data == "add_task")
-async def prompt_add_task(callback: types.CallbackQuery):
-    await callback.message.answer("✍️ Напиши задачу одним сообщением:")
-    dp['add_task'] = True
-    await callback.answer()
+@dp.message(F.text.lower() == "💬 цитата")
+@dp.message(Command("цитата"))
+async def cmd_quote(message: Message):
+    quote = get_random_quote()
+    await message.answer(f"💬 <i>{quote}</i>", parse_mode="HTML")
 
-@dp.message()
-async def handle_task_text(message: Message):
-    if dp.get('add_task'):
-        dp['add_task'] = False
-        checklist = load_json("data/checklist.json", [])
-        checklist.append({"task": message.text, "done": False, "date": datetime.today().strftime("%Y-%m-%d")})
-        save_json("data/checklist.json", checklist)
-        await message.answer("📝 Задача добавлена!", reply_markup=main_kb)
-
-# --- Запуск ---
+# ---------- MAIN ----------
 async def main():
     scheduler = AsyncIOScheduler()
+    scheduler.add_job(send_quote, "cron", hour=6, minute=0, args=[bot, USER_ID])
     scheduler.start()
     await dp.start_polling(bot)
 
