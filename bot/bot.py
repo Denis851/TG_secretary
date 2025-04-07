@@ -52,8 +52,7 @@ async def show_schedule(message: Message):
     if not schedule:
         await message.answer("Нет сохранённого расписания.")
         return
-    text = "📅 Текущее расписание:
-"
+    text = "📅 Текущее расписание:"
     for item in schedule:
         text += f"{item['time']} — {item['activity']}\n"
     await message.answer(text)
