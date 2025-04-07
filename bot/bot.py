@@ -1,124 +1,125 @@
-import os
-import json
-import random
 import asyncio
-from datetime import datetime
-from dotenv import load_dotenv
-
+import json
+import os
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums import ParseMode
-from aiogram.types import Message, FSInputFile, CallbackQuery
-from aiogram.client.default import DefaultBotProperties
-from aiogram.filters import CommandStart, Command
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-
+from aiogram.types import Message
+from aiogram.utils.keyboard import InlineKeyboardMarkup, InlineKeyboardButton
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from keyboards import main_menu_kb, checklist_inline_kb, goals_inline_kb
 
-load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-USER_ID = int(os.getenv("USER_ID", 0))
-
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
+scheduler = AsyncIOScheduler()
 
-# ====== Утилиты ======
+# ======================== Работа с файлами =========================
 
-DATA_DIR = "data"
-os.makedirs(DATA_DIR, exist_ok=True)
+def load_json(path, default=[]):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return default
 
-def load_json(name, default=[]):
-    path = os.path.join(DATA_DIR, name)
-    if not os.path.exists(path): return default
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
-
-def save_json(name, data):
-    path = os.path.join(DATA_DIR, name)
+def save_json(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
-def get_random_quote():
-    quotes = load_json("quotes.txt", [])
-    return random.choice(quotes) if quotes else "Каждый день — шанс начать заново."
+# ======================== Хендлеры =========================
 
-# ====== Хендлеры ======
-
-@dp.message(CommandStart())
+@dp.message(F.text.lower() == "/start")
 async def cmd_start(message: Message):
-    await message.answer("👋 Привет! Я ИИ-секретарь. Что делаем?", reply_markup=main_menu_kb)
+    await message.answer("Привет, Ден! Я твой помощник по распорядку дня!", reply_markup=main_menu_kb)
 
-@dp.message(F.text == "Чеклист")
-async def show_checklist(message: Message):
-    checklist = load_json("checklist.json")
-    if not checklist:
-        await message.answer("📋 Чеклист пуст.")
-    else:
-        text = "📝 Твои задачи на день:\n" + "\n".join([f"- {item}" for item in checklist])
-        await message.answer(text)
-    await message.answer("Что сделать?", reply_markup=checklist_inline_kb)
-
-@dp.message(F.text == "Цели")
-async def show_goals(message: Message):
-    goals = load_json("goals.json")
-    if not goals:
-        await message.answer("🎯 Целей пока нет.")
-    else:
-        text = "🎯 Твои цели:\n" + "\n".join([f"- {g}" for g in goals])
-        await message.answer(text)
-    await message.answer("Что сделать?", reply_markup=goals_inline_kb)
-
-@dp.message(F.text == "Прогресс")
-async def show_progress(message: Message):
-    await message.answer("📈 Визуализация и аналитика в разработке.")
-
-@dp.message(F.text == "Расписание")
+@dp.message(F.text.lower() == "📅 расписание")
 async def show_schedule(message: Message):
-    await message.answer("📅 Подключение редактора расписания скоро.")
+    schedule = load_json("data/schedule.json")
+    if not schedule:
+        await message.answer("📅 Расписание пока не задано.")
+    else:
+        text = "\n".join([f"{item['time']} — {item['activity']}" for item in schedule])
+        await message.answer(f"📅 Текущее расписание:\n{text}")
+
+@dp.message(F.text.lower() == "✅ чеклист")
+async def show_checklist(message: Message):
+    tasks = load_json("data/checklist.json")
+    if not tasks:
+        await message.answer("✅ Чеклист пуст. Добавь задачу!", reply_markup=checklist_inline_kb)
+    else:
+        text = "\n".join(tasks)
+        await message.answer(f"📋 Текущий чеклист:\n{text}", reply_markup=checklist_inline_kb)
+
+@dp.message(F.text.lower() == "🎯 цели")
+async def show_goals(message: Message):
+    goals = load_json("data/goals.json")
+    if not goals:
+        await message.answer("🎯 Целей пока нет. Добавь новую!", reply_markup=goals_inline_kb)
+    else:
+        text = "\n".join(goals)
+        await message.answer(f"🎯 Текущие цели:\n{text}", reply_markup=goals_inline_kb)
+
+@dp.message(F.text.lower() == "📈 прогресс")
+async def show_progress(message: Message):
+    tasks = load_json("data/checklist.json")
+    goals = load_json("data/goals.json")
+    completed = len([t for t in tasks if t.startswith("✅")]) + len([g for g in goals if g.startswith("✅")])
+    total = len(tasks) + len(goals)
+    percent = int((completed / total) * 100) if total else 0
+    bar = "🟩" * (percent // 10) + "⬜️" * (10 - percent // 10)
+    await message.answer(f"📊 Прогресс: {bar} {percent}%")
+
+# ======================== Inline действия =========================
 
 @dp.callback_query(F.data == "add_task")
-async def cb_add_task(callback: CallbackQuery):
-    await callback.message.answer("✍️ Напиши задачу, которую нужно добавить в чеклист:")
+async def ask_new_task(callback: types.CallbackQuery):
+    await callback.message.answer("✍️ Введи новую задачу:")
     await callback.answer()
-    dp.message.register(save_task_once)
+    dp.message.register(save_task, F.text)
 
-async def save_task_once(message: Message):
-    checklist = load_json("checklist.json")
-    checklist.append(message.text)
-    save_json("checklist.json", checklist)
-    await message.answer("✅ Задача добавлена!", reply_markup=main_menu_kb)
-    dp.message.unregister(save_task_once)
+async def save_task(message: Message):
+    tasks = load_json("data/checklist.json")
+    tasks.append(message.text)
+    save_json("data/checklist.json", tasks)
+    await message.answer("✅ Задача добавлена!")
+    dp.message.unregister(save_task)
 
 @dp.callback_query(F.data == "add_goal")
-async def cb_add_goal(callback: CallbackQuery):
-    await callback.message.answer("🎯 Напиши цель, которую нужно добавить:")
+async def ask_new_goal(callback: types.CallbackQuery):
+    await callback.message.answer("🎯 Введи новую цель:")
     await callback.answer()
-    dp.message.register(save_goal_once)
+    dp.message.register(save_goal, F.text)
 
-async def save_goal_once(message: Message):
-    goals = load_json("goals.json")
+async def save_goal(message: Message):
+    goals = load_json("data/goals.json")
     goals.append(message.text)
-    save_json("goals.json", goals)
-    await message.answer("🎯 Цель добавлена!", reply_markup=main_menu_kb)
-    dp.message.unregister(save_goal_once)
+    save_json("data/goals.json", goals)
+    await message.answer("🎯 Цель добавлена!")
+    dp.message.unregister(save_goal)
 
-@dp.message(Command("отчёт"))
-async def cmd_report(message: Message):
-    today = datetime.today().strftime("%Y-%m-%d")
-    checklist = load_json("checklist.json")
-    goals = load_json("goals.json")
-    report = f"📝 Отчёт за {today}\n\n✅ Задачи:\n" + "\n".join([f"- {t}" for t in checklist])
-    report += "\n\n🎯 Цели:\n" + "\n".join([f"- {g}" for g in goals])
+@dp.callback_query(F.data == "task_done")
+async def mark_task_done(callback: types.CallbackQuery):
+    tasks = load_json("data/checklist.json")
+    if tasks:
+        tasks[0] = f"✅ {tasks[0]}"
+        save_json("data/checklist.json", tasks)
+        await callback.message.answer("Задача выполнена!")
+    await callback.answer()
 
-    path = f"{DATA_DIR}/report_{today}.txt"
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(report)
+@dp.callback_query(F.data == "goal_done")
+async def mark_goal_done(callback: types.CallbackQuery):
+    goals = load_json("data/goals.json")
+    if goals:
+        goals[0] = f"✅ {goals[0]}"
+        save_json("data/goals.json", goals)
+        await callback.message.answer("Цель выполнена!")
+    await callback.answer()
 
-    await message.answer_document(document=FSInputFile(path), caption="📤 Твой отчёт готов!")
-
-# ====== Запуск ======
+# ======================== Запуск =========================
 
 async def main():
-    print("[INFO] Бот запущен")
+    scheduler.start()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
