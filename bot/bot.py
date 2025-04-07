@@ -47,25 +47,25 @@ async def show_schedule(message: Message):
     text = "<b>📅 Текущее расписание:</b>\n" + "\n".join(schedule)
     await message.answer(text)
 
-@dp.message(lambda m: m.text == "✅ Чеклист")
+@dp.message(F.text.lower() == "✅ чеклист")
 async def show_checklist(message: Message):
-    tasks = load_json("data/checklist.json")
+    tasks = load_json("data/checklist.json", [])
     if not tasks:
-        await message.answer("Задачи пока не добавлены.")
-    else:
-        task_text = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tasks)])
-        bar = progress_bar(len([t for t in tasks if t.startswith("✅")]), len(tasks))
-        await message.answer(f"<b>Текущий чеклист:</b>\n{task_text}\n\n{bar}", reply_markup=checklist_inline_kb)
+        await message.answer("Задачи пока не добавлены.", reply_markup=checklist_inline_kb)
+        return
+    text = "📋 Текущий чеклист:\n" + "\n".join(f"{i+1}. {t}" for i, t in enumerate(tasks))
+    await message.answer(text, reply_markup=checklist_inline_kb)
 
-@dp.message(lambda m: m.text == "🎯 Цели")
+
+@dp.message(F.text.lower() == "🎯 цели")
 async def show_goals(message: Message):
-    goals = load_json("data/goals.json")
+    goals = load_json("data/goals.json", [])
     if not goals:
-        await message.answer("Цели пока не добавлены.")
-    else:
-        goal_text = "\n".join([f"{i+1}. {g}" for i, g in enumerate(goals)])
-        bar = progress_bar(len([g for g in goals if g.startswith("✅")]), len(goals))
-        await message.answer(f"<b>Текущие цели:</b>\n{goal_text}\n\n{bar}", reply_markup=goals_inline_kb)
+        await message.answer("Цели пока не добавлены.", reply_markup=goals_inline_kb)
+        return
+    text = "🎯 Текущие цели:\n" + "\n".join(f"{i+1}. {g}" for i, g in enumerate(goals))
+    await message.answer(text, reply_markup=goals_inline_kb)
+
 
 @dp.message(lambda m: m.text == "📈 Прогресс")
 async def show_progress(message: Message):
