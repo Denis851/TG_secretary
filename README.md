@@ -16,3 +16,4 @@
 - `bot/` — Telegram-бот на aiogram
 - `web/` — FastAPI-интерфейс и графики
 - `data/` — локальные JSON-файлы (не коммитятся)
+# Init-AI-Secretary-bot
