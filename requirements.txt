@@ -1,8 +1,4 @@
-aiogram==3.19.0
-python-dotenv
-aiofiles
-APScheduler
-fastapi
-matplotlib
-apscheduler
-reportlab
+aiogram==3.1.1
+apscheduler==3.10.4
+reportlab==4.1.0
+python-dotenv==1.0.1
