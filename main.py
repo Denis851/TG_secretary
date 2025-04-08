@@ -8,29 +8,28 @@ from bot.handlers import register_handlers
 from bot.fsm_handlers import register_fsm_handlers
 from bot.utils import generate_report_pdf
 
-from aiogram.enums import ParseMode
-bot = Bot(token="YOUR_TOKEN", parse_mode=ParseMode.HTML)
+from aiogram.types import InputFile
 
-
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 
-# Задача по расписанию — автоотчёт в PDF по воскресеньям
+# Задача по расписанию — АВТООТЧЁТ в PDF по воскресеньям
 async def weekly_report():
     path = generate_report_pdf()
     if path:
-        await bot.send_document(chat_id=USER_ID, document=path, caption="📊 Еженедельный отчёт")
+        await bot.send_document(chat_id=USER_ID, document=InputFile(path), caption="📊 Твой недельный отчёт")
 
 async def main():
-    # Расписание задач
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(weekly_report, "cron", day_of_week="sun", hour=21, minute=0)
-    scheduler.start()
-
     # Регистрация хендлеров
     register_handlers(dp)
     register_fsm_handlers(dp)
 
-    print("Бот запущен ✅")
+    # Планировщик задач
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(weekly_report, "cron", day_of_week="sun", hour=21, minute=0)
+    scheduler.start()
+
+    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
