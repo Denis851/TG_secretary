@@ -1,7 +1,6 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import BOT_TOKEN, USER_ID
@@ -9,10 +8,9 @@ from handlers import register_handlers
 from fsm_handlers import register_fsm_handlers
 from utils import generate_report_pdf
 
-bot = Bot(
-    token=BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
+from aiogram.enums import ParseMode
+bot = Bot(token="YOUR_TOKEN", parse_mode=ParseMode.HTML)
+
 
 dp = Dispatcher()
 
