@@ -4,3 +4,5 @@ aiofiles
 APScheduler
 fastapi
 matplotlib
+apscheduler
+reportlab
