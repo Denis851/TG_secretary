@@ -5,4 +5,4 @@ class TaskStates(StatesGroup):
     deadline = State()
 
 class GoalStates(StatesGroup):
-    name = State()
+    waiting_for_goal_text = State()
