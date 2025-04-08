@@ -18,3 +18,4 @@
 - `data/` — локальные JSON-файлы (не коммитятся)
 # Init-AI-Secretary-bot
 # Init-AI-Secretary-bot
+# Init-AI-Secretary-bot
