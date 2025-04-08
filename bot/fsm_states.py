@@ -1,8 +1,7 @@
 from aiogram.fsm.state import State, StatesGroup
 
-class TaskStates(StatesGroup):
-    waiting_for_task = State()
+class FSMAddGoal(StatesGroup):
+    goal = State()
 
-class GoalStates(StatesGroup):
-    waiting_for_goal = State()
-
+class FSMAddTask(StatesGroup):
+    task = State()
