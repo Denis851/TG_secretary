@@ -1,7 +1,8 @@
-from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.state import StatesGroup, State
 
-class FSMAddGoal(StatesGroup):
-    goal = State()
+class TaskStates(StatesGroup):
+    description = State()
+    deadline = State()
 
-class FSMAddTask(StatesGroup):
-    task = State()
+class GoalStates(StatesGroup):
+    name = State()
