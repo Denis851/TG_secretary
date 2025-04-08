@@ -1,9 +1,9 @@
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
-from fsm_states import TaskStates, GoalStates
-from keyboards import checklist_inline_kb, goals_inline_kb
-from utils import load_json, save_json
+from bot.fsm_states import TaskStates, GoalStates
+from bot.keyboards import checklist_inline_kb, goals_inline_kb
+from bot.utils import load_json, save_json
 
 router = Router()
 
