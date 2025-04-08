@@ -1,3 +1,4 @@
+# Force Git to track changes
 # 📁 config.py — Загрузка переменных окружения и базовая настройка
 import os
 from dotenv import load_dotenv
