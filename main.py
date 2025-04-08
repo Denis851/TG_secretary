@@ -4,9 +4,9 @@ from aiogram.enums import ParseMode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from bot.config import BOT_TOKEN, USER_ID
-from handlers import register_handlers
-from fsm_handlers import register_fsm_handlers
-from utils import generate_report_pdf
+from bot.handlers import register_handlers
+from bot.fsm_handlers import register_fsm_handlers
+from bot.utils import generate_report_pdf
 
 from aiogram.enums import ParseMode
 bot = Bot(token="YOUR_TOKEN", parse_mode=ParseMode.HTML)
