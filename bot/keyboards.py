@@ -11,27 +11,24 @@ main_menu_kb = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# Inline-кнопки для задач (чеклиста)
-def build_task_inline_kb(task_id):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Выполнено", callback_data=f"task_done:{task_id}"),
-            InlineKeyboardButton(text="🚫 Не выполнено", callback_data=f"task_failed:{task_id}")
-        ],
-        [
-            InlineKeyboardButton(text="✍️ Добавить задачу", callback_data="add_task")
-        ]
-    ])
+# Inline-кнопки для чеклиста
+checklist_inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [
+        InlineKeyboardButton(text="✅ Выполнено", callback_data="task_done"),
+        InlineKeyboardButton(text="🚫 Не выполнено", callback_data="task_failed")
+    ],
+    [
+        InlineKeyboardButton(text="✍️ Добавить задачу", callback_data="add_task")
+    ]
+])
 
 # Inline-кнопки для целей
-def build_goal_inline_kb(goal_id):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Выполнено", callback_data=f"goal_done:{goal_id}"),
-            InlineKeyboardButton(text="🚫 Не выполнено", callback_data=f"goal_failed:{goal_id}")
-        ],
-        [
-            InlineKeyboardButton(text="🎯 Добавить цель", callback_data="add_goal")
-        ]
-    ])
-
+goals_inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [
+        InlineKeyboardButton(text="✅ Выполнено", callback_data="goal_done"),
+        InlineKeyboardButton(text="🚫 Не выполнено", callback_data="goal_failed")
+    ],
+    [
+        InlineKeyboardButton(text="🎯 Добавить цель", callback_data="add_goal")
+    ]
+])
