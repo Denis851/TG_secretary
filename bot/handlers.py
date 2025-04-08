@@ -1,8 +1,8 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from keyboards import main_menu_kb, goals_inline_kb, checklist_inline_kb
-from utils import load_json, get_random_quote
-from fsm_states import FSMAddGoal, FSMAddTask
+from bot.keyboards import main_menu_kb, goals_inline_kb, checklist_inline_kb
+from bot.utils import load_json, get_random_quote
+from bot.fsm_states import FSMAddGoal, FSMAddTask
 from aiogram.fsm.context import FSMContext
 
 router = Router()
