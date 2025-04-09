@@ -30,6 +30,7 @@ async def main():
     scheduler.start()
 
     await bot.delete_webhook(drop_pending_updates=True)
+    register_fsm_handlers(dp)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

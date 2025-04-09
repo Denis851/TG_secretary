@@ -1,4 +1,6 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
+from aiogram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, Router
+
+router = Router()
 
 # Главное меню (Reply Keyboard)
 main_menu_kb = ReplyKeyboardMarkup(
@@ -46,3 +48,5 @@ checklist_inline_kb = [
         InlineKeyboardButton(text="📋 Показать чек-лист", callback_data="show_checklist")
     ]
 ]
+def register_handlers(dp: Router):
+    dp.include_router(router)
