@@ -1,4 +1,4 @@
-ffrom aiogram import Router
+from aiogram import Router
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
 
 router = Router()
