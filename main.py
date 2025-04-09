@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -6,33 +7,37 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot.config import BOT_TOKEN, USER_ID
 from bot.handlers import register_handlers
 from bot.fsm_handlers import register_fsm_handlers
-from bot.utils import generate_report_pdf
+from bot.utils import send_quote, generate_and_send_report
 
-from aiogram.types import InputFile
+# Логирование
+logging.basicConfig(level=logging.INFO)
 
+# Бот и диспетчер
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 
-# Задача по расписанию — АВТООТЧЁТ в PDF по воскресеньям
-async def weekly_report():
-    path = generate_report_pdf()
-    if path:
-        await bot.send_document(chat_id=USER_ID, document=InputFile(path), caption="📊 Твой недельный отчёт")
+# Планировщик задач
+scheduler = AsyncIOScheduler()
+
+def setup_scheduler():
+    # Отправка цитаты каждое утро в 6:00
+    scheduler.add_job(send_quote, trigger='cron', hour=6, minute=0, args=[bot, USER_ID])
+
+    # Отправка отчета каждое воскресенье в 21:00
+    scheduler.add_job(generate_and_send_report, trigger='cron', day_of_week='sun', hour=21, minute=0, args=[bot, USER_ID])
+
+    scheduler.start()
 
 async def main():
-    # Регистрация хендлеров
+    # Регистрация маршрутов
     register_handlers(dp)
     register_fsm_handlers(dp)
 
-    # Планировщик задач
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(weekly_report, "cron", day_of_week="sun", hour=21, minute=0)
-    scheduler.start()
+    # Запуск планировщика
+    setup_scheduler()
 
-    await bot.delete_webhook(drop_pending_updates=True)
-    register_fsm_handlers(dp)
+    # Запуск бота
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
-

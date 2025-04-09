@@ -1,6 +1,6 @@
 from aiogram import Router
 from aiogram.types import Message
-from .fsm_states import GoalStates, TaskStates
+from bot.fsm_states import GoalStates, TaskStates
 
 router = Router()
 

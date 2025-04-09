@@ -2,33 +2,31 @@ import os
 import json
 import random
 from datetime import datetime
-
 from aiogram import Bot
 from aiogram.types import FSInputFile
-from dotenv import load_dotenv
+
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
 
-# Загрузка переменных окружения
-load_dotenv()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
 
-# ---------- JSON УТИЛИТЫ ----------
+# === Общие функции ===
 
-def load_json(path, default=[]):
+def load_json(path: str, default=None):
+    if default is None:
+        default = []
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return default
 
-def save_json(path, data):
+
+def save_json(path: str, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# ---------- ЦИТАТА ДНЯ ----------
+
+# === Цитата дня ===
 
 def get_random_quote():
     try:
@@ -38,52 +36,52 @@ def get_random_quote():
     except Exception:
         return "Каждый день — шанс начать заново."
 
-# ---------- PDF ОТЧЁТ ----------
 
-def generate_report_pdf(filename="data/weekly_report.pdf"):
+async def send_quote(bot: Bot, user_id: int):
+    quote = get_random_quote()
+    await bot.send_message(user_id, f"💬 Цитата дня:\n<em>{quote}</em>")
+
+
+# === Генерация и отправка PDF отчета ===
+
+def generate_report_text() -> str:
+    today = datetime.today().strftime("%Y-%m-%d")
+    checklist = load_json("data/checklist.json", [])
     goals = load_json("data/goals.json", [])
-    tasks = load_json("data/checklist.json", [])
-    completed_goals = [g for g in goals if g.get("done")]
-    completed_tasks = [t for t in tasks if t.get("done")]
+    mood = load_json("data/mood.json", [])
 
-    c = canvas.Canvas(filename, pagesize=A4)
-    width, height = A4
-    c.setTitle("Weekly Progress Report")
+    report = f"📝 Отчёт за {today}\n\n"
 
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, height - 50, "📊 Weekly Progress Report")
+    # Задачи
+    completed = [task for task in checklist if task.get("done")]
+    report += "✅ Выполненные задачи:\n"
+    report += "\n".join(f" - {task['task']}" for task in completed) or " - нет\n"
 
-    c.setFont("Helvetica", 12)
-    c.drawString(50, height - 80, f"Дата: {datetime.now().strftime('%d.%m.%Y')}")
+    # Цели
+    report += "\n🎯 Цели:\n"
+    report += "\n".join(f" - {g['text']} ✅" if g.get("done") else f" - {g['text']} ❌" for g in goals) or " - нет\n"
 
-    # Goals
-    c.drawString(50, height - 120, f"🎯 Цели выполнены: {len(completed_goals)} / {len(goals)}")
-    for i, goal in enumerate(goals, start=1):
-        status = "✅" if goal.get("done") else "❌"
-        c.drawString(70, height - 140 - i * 20, f"{status} {goal.get('text', 'Цель без текста')}")
+    # Настроение
+    today_mood = next((m['mood'] for m in reversed(mood) if today in m['time']), "—")
+    report += f"\n😌 Настроение: {today_mood}"
 
-    y_offset = height - 160 - len(goals) * 20 - 20
-    c.drawString(50, y_offset, f"📋 Задачи выполнены: {len(completed_tasks)} / {len(tasks)}")
-    for i, task in enumerate(tasks, start=1):
-        status = "✅" if task.get("done") else "❌"
-        c.drawString(70, y_offset - i * 20, f"{status} {task.get('text', 'Задача без текста')}")
+    return report
 
+
+def create_pdf_report(report_text: str, file_path: str):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    c = canvas.Canvas(file_path)
+    y = 800
+    for line in report_text.split('\n'):
+        c.drawString(40, y, line)
+        y -= 20
     c.save()
-    return filename
 
-# ---------- ОТПРАВКА ОТЧЁТА ----------
 
-async def send_weekly_report_pdf():
-    try:
-        user_data = load_json("data/user.json", {})
-        user_id = user_data.get("id")
-        if not user_id:
-            print("❗ Telegram ID пользователя не найден.")
-            return
+async def generate_and_send_report(bot: Bot, user_id: int):
+    today = datetime.today().strftime("%Y-%m-%d")
+    report_text = generate_report_text()
+    file_path = f"data/reports/report_{today}.pdf"
+    create_pdf_report(report_text, file_path)
 
-        path = generate_report_pdf()
-        await bot.send_document(chat_id=user_id, document=FSInputFile(path), caption="📄 Твой еженедельный отчёт готов!")
-        print("✅ Отчёт отправлен.")
-    except Exception as e:
-        print(f"❌ Ошибка отправки отчёта: {e}")
-
+    await bot.send_document(user_id, FSInputFile(file_path), caption="📤 Твой отчёт за неделю")

@@ -3,6 +3,11 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardBut
 
 router = Router()
 
+@router.message(CommandStart())
+async def start_handler(message: Message):
+    await message.answer("Привет! Я бот.")
+
+
 # Главное меню (Reply Keyboard)
 main_menu_kb = ReplyKeyboardMarkup(
     keyboard=[
@@ -49,5 +54,5 @@ checklist_inline_kb = [
         InlineKeyboardButton(text="📋 Показать чек-лист", callback_data="show_checklist")
     ]
 ]
-def register_handlers(dp: Router):
+def register_handlers(dp: Dispatcher):
     dp.include_router(router)
