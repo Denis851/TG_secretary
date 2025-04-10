@@ -1,27 +1,30 @@
-# Базовый образ Python
+# Используем официальный образ Python
 FROM python:3.11-slim
 
-# Устанавливаем системные зависимости для сборки aiohttp и других пакетов
-RUN apt-get update && apt-get install -y \
-    build-essential \
+# Обновляем pip и устанавливаем системные зависимости для aiohttp и других
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    build-essential \
     libffi-dev \
     libssl-dev \
     libxml2-dev \
     libxslt1-dev \
-    libjpeg-dev \
-    zlib1g-dev \
-    && apt-get clean
+    libpq-dev \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
 # Копируем файлы проекта
-COPY . /app
+COPY . .
 
-# Устанавливаем зависимости из requirements.txt
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+# Устанавливаем зависимости
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Запуск бота
+# Устанавливаем переменные окружения
+ENV PYTHONUNBUFFERED=1
+
+# Команда запуска приложения
 CMD ["python", "main.py"]
