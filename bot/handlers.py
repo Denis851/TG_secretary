@@ -1,4 +1,4 @@
-from aiogram import Router
+from aiogram import Router, Dispatcher
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, Message
 from aiogram.filters import Command, CommandStart
 
