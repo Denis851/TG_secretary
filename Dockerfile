@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Копируем файлы проекта
-COPY . .
+COPY . /app
 
 # Устанавливаем зависимости из requirements.txt
 RUN pip install --upgrade pip
